@@ -1,0 +1,70 @@
+name: Release Management
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version (e.g., v1.0.0)'
+        required: true
+        type: string
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: 📥 Checkout repository
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+        
+    - name: ☕ Set up JDK 11
+      uses: actions/setup-java@v3
+      with:
+        java-version: '11'
+        distribution: 'temurin'
+        
+    - name: 📦 Build and package
+      run: |
+        mvn clean package -DskipTests
+        
+    - name: 🧪 Run full test suite
+      run: |
+        mvn clean test
+        mvn allure:report
+        
+    - name: 📊 Generate release report
+      run: |
+        # Create release notes from test results
+        echo "# Release Notes" > RELEASE_NOTES.md
+        echo "" >> RELEASE_NOTES.md
+        echo "## Test Results Summary" >> RELEASE_NOTES.md
+        echo "- Total Tests: $(find allure-results -name '*-result.json' | wc -l)" >> RELEASE_NOTES.md
+        echo "- Generated: $(date)" >> RELEASE_NOTES.md
+        echo "" >> RELEASE_NOTES.md
+        echo "## Changes in this release" >> RELEASE_NOTES.md
+        git log --oneline $(git describe --tags --abbrev=0)..HEAD >> RELEASE_NOTES.md
+        
+    - name: 📤 Create GitHub Release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ github.ref }}
+        release_name: Release ${{ github.ref }}
+        body_path: RELEASE_NOTES.md
+        draft: false
+        prerelease: false
+        
+    - name: 📦 Upload test artifacts
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: target/site/allure-maven-plugin/
+        asset_name: allure-report.zip
+        asset_content_type: application/zip

@@ -1,0 +1,85 @@
+# config.properties - Local configuration
+config.properties
+
+# IDE files
+.idea/
+*.iml
+*.iws
+*.ipr
+.vscode/
+.settings/
+.project
+.classpath
+
+# Build artifacts
+target/
+build/
+out/
+*.jar
+*.war
+*.ear
+
+# Test outputs
+allure-results/
+test-output/
+screenshots/
+target/screenshots/
+target/logs/
+
+# Temporary files
+*.tmp
+*.temp
+*.log
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Maven
+.mvn/
+mvnw
+mvnw.cmd
+
+# Gradle
+.gradle/
+gradle/
+gradlew
+gradlew.bat
+
+# Node modules (if using any Node.js tools)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Environment files
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Browser drivers (managed by WebDriverManager)
+drivers/
+*.exe
+
+# Allure report files (except results for CI)
+allure-report/
+.allure/
+
+# JaCoCo coverage reports
+jacoco.exec
+*.exec
+
+# Selenium logs
+selenium-server.log
+geckodriver.log
+chromedriver.log

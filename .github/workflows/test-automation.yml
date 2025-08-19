@@ -1,0 +1,185 @@
+name: Weather API-UI Test Automation
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  schedule:
+    # Run tests daily at 6 AM UTC
+    - cron: '0 6 * * *'
+  workflow_dispatch:
+    inputs:
+      test_suite:
+        description: 'Test suite to run'
+        required: false
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - api-only
+          - ui-only
+          - weather-comparison
+      environment:
+        description: 'Environment to test against'
+        required: false
+        default: 'production'
+        type: choice
+        options:
+          - production
+          - staging
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        java-version: [11, 17]
+        browser: [chrome, firefox]
+      fail-fast: false
+    
+    steps:
+    - name: 📥 Checkout repository
+      uses: actions/checkout@v4
+      
+    - name: ☕ Set up JDK ${{ matrix.java-version }}
+      uses: actions/setup-java@v3
+      with:
+        java-version: ${{ matrix.java-version }}
+        distribution: 'temurin'
+        
+    - name: 📦 Cache Maven dependencies
+      uses: actions/cache@v3
+      with:
+        path: ~/.m2
+        key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
+        restore-keys: ${{ runner.os }}-m2
+        
+    - name: 🌐 Setup Chrome
+      if: matrix.browser == 'chrome'
+      uses: browser-actions/setup-chrome@latest
+      with:
+        chrome-version: stable
+        
+    - name: 🦊 Setup Firefox
+      if: matrix.browser == 'firefox'
+      uses: browser-actions/setup-firefox@latest
+      with:
+        firefox-version: latest
+        
+    - name: 🔧 Configure test environment
+      run: |
+        # Create config file from template
+        cp config.properties.template config.properties
+        # Set API key from secrets
+        echo "api.key=${{ secrets.OPENWEATHER_API_KEY }}" >> config.properties
+        echo "browser.type=${{ matrix.browser }}" >> config.properties
+        
+    - name: 🧪 Run tests
+      run: |
+        case "${{ github.event.inputs.test_suite }}" in
+          "api-only")
+            mvn test -Dtest=tests.ApiTests
+            ;;
+          "ui-only")
+            mvn test -Dtest=tests.UiTests
+            ;;
+          "weather-comparison")
+            mvn test -Dtest=tests.WeatherComparisonTest
+            ;;
+          *)
+            mvn clean test
+            ;;
+        esac
+      env:
+        BROWSER: ${{ matrix.browser }}
+        HEADLESS: true
+        
+    - name: 📊 Generate Allure Report
+      if: always()
+      run: |
+        mvn allure:report
+        
+    - name: 📤 Upload Allure Results
+      if: always()
+      uses: actions/upload-artifact@v3
+      with:
+        name: allure-results-${{ matrix.java-version }}-${{ matrix.browser }}
+        path: allure-results/
+        retention-days: 30
+        
+    - name: 📤 Upload Allure Report
+      if: always()
+      uses: actions/upload-artifact@v3
+      with:
+        name: allure-report-${{ matrix.java-version }}-${{ matrix.browser }}
+        path: target/site/allure-maven-plugin/
+        retention-days: 30
+        
+    - name: 📸 Upload Screenshots (if failed)
+      if: failure()
+      uses: actions/upload-artifact@v3
+      with:
+        name: screenshots-${{ matrix.java-version }}-${{ matrix.browser }}
+        path: target/screenshots/
+        retention-days: 7
+
+  publish-report:
+    needs: test
+    runs-on: ubuntu-latest
+    if: always() && (github.ref == 'refs/heads/main' || github.event_name == 'schedule')
+    
+    steps:
+    - name: 📥 Checkout repository
+      uses: actions/checkout@v4
+      
+    - name: 📥 Download all artifacts
+      uses: actions/download-artifact@v3
+      with:
+        path: artifacts/
+        
+    - name: 📊 Merge Allure Results
+      run: |
+        mkdir -p combined-allure-results
+        find artifacts/ -name "allure-results*" -type d -exec cp -r {}/* combined-allure-results/ \;
+        
+    - name: 📈 Generate Combined Report
+      uses: simple-elf/allure-report-action@master
+      if: always()
+      with:
+        allure_results: combined-allure-results
+        allure_report: allure-report
+        gh_pages: gh-pages
+        allure_history: allure-history
+        
+    - name: 🚀 Deploy to GitHub Pages
+      if: always()
+      uses: peaceiris/actions-gh-pages@v3
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        publish_dir: allure-history
+        destination_dir: reports
+
+  notify:
+    needs: [test, publish-report]
+    runs-on: ubuntu-latest
+    if: always() && github.ref == 'refs/heads/main'
+    
+    steps:
+    - name: 🔔 Notify on Slack (Success)
+      if: needs.test.result == 'success'
+      uses: 8398a7/action-slack@v3
+      with:
+        status: success
+        text: "✅ Weather API-UI tests passed! Report: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/reports"
+      env:
+        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        
+    - name: 🔔 Notify on Slack (Failure)
+      if: needs.test.result == 'failure'
+      uses: 8398a7/action-slack@v3
+      with:
+        status: failure
+        text: "❌ Weather API-UI tests failed! Check the logs for details."
+      env:
+        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}

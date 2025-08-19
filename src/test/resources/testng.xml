@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE suite SYSTEM "http://testng.org/testng-1.0.dtd">
+<suite name="Weather API-UI Automation Suite" parallel="tests" thread-count="2">
+    
+    <!-- Parameters for test configuration -->
+    <parameter name="browser" value="chrome"/>
+    <parameter name="headless" value="false"/>
+    <parameter name="environment" value="production"/>
+    
+    <!-- Test groups for selective execution -->
+    <groups>
+        <define name="api">
+            <include name="api-tests"/>
+        </define>
+        <define name="ui">
+            <include name="ui-tests"/>
+        </define>
+        <define name="integration">
+            <include name="integration-tests"/>
+        </define>
+        <define name="smoke">
+            <include name="smoke-tests"/>
+        </define>
+    </groups>
+    
+    <!-- API Tests -->
+    <test name="API Tests" group-by-instances="true">
+        <groups>
+            <include name="api-tests"/>
+            <include name="smoke-tests"/>
+        </groups>
+        <classes>
+            <class name="tests.ApiTests"/>
+        </classes>
+    </test>
+    
+    <!-- UI Tests -->
+    <test name="UI Tests" group-by-instances="true">
+        <groups>
+            <include name="ui-tests"/>
+        </groups>
+        <classes>
+            <class name="tests.UiTests"/>
+        </classes>
+    </test>
+    
+    <!-- Integration Tests -->
+    <test name="Integration Tests" group-by-instances="true">
+        <groups>
+            <include name="integration-tests"/>
+            <include name="smoke-tests"/>
+        </groups>
+        <classes>
+            <class name="tests.WeatherComparisonTest"/>
+        </classes>
+    </test>
+    
+    <!-- Listeners -->
+    <listeners>
+        <listener class-name="io.qameta.allure.testng.AllureTestNg"/>
+    </listeners>
+    
+</suite>
