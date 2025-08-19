@@ -1,0 +1,6 @@
+api\WeatherApiClient.class
+base\BaseTest.class
+model\WeatherData.class
+utils\ConfigReader.class
+client\WeatherApiClient.class
+pages\WeatherPage.class
